@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"reflect"
 
 	"github.com/parquet-go/parquet-go"
 )
@@ -18,7 +19,9 @@ func main() {
 	pf := parquet.NewReader(rf)
 
 	// fmt.Println(pf.Schema().Columns())
-	fmt.Printf("%+v", pf.Schema().GoType())
+
+	aa := reflect.New(pf.Schema().GoType())
+	fmt.Println(aa.Interface())
 	// parquet.
 	// fmt.Printf("%+v\n", pf.Schema().GoType())
 	// Read the rows
@@ -37,6 +40,7 @@ func main() {
 }
 
 type Schema struct {
+	Typer reflect.Type
 }
 
 type Contact struct {
