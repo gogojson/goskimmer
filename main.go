@@ -1,33 +1,52 @@
 package main
 
 import (
+	"flag"
 	"fmt"
-	"log"
+	"os"
 
-	"github.com/xitongsys/parquet-go/local"
-	"github.com/xitongsys/parquet-go/reader"
+	"github.com/parquet-go/parquet-go"
 )
 
 func main() {
-	// Replace with the path to your Parquet file
-	filePath := "path/to/your/file.parquet"
+	// Get file from flag
+	fp := flag.String("file", "test/test.parquet.gzip", "Input file path for the file to skim")
+	flag.Parse()
 
-	// Open the Parquet file
+	// Now, we can read from the file.
+	rf, _ := os.Open(*fp)
+	pf := parquet.NewReader(rf)
 
-	fr, err := local.NewLocalFileReader(filePath)
-	if err != nil {
-		log.Fatalf("Failed to open file: %v", err)
-	}
-	defer fr.Close()
+	// fmt.Println(pf.Schema().Columns())
+	fmt.Printf("%+v", pf.Schema().GoType())
+	// parquet.
+	// fmt.Printf("%+v\n", pf.Schema().GoType())
+	// Read the rows
+	// num := int(pf.NumRows())
+	// rows := parquet.GenericReader[]{}
 
-	// Create a Parquet reader
-	pr, err := reader.NewParquetReader(fr, nil, 1)
-	if err != nil {
-		log.Fatalf("Failed to create Parquet reader: %v", err)
-	}
-	defer pr.ReadStop()
+	// for {
+	// 	if err := pf.Read(rows); err == io.EOF {
+	// 		break
+	// 	} else if err != nil {
+	// 		fmt.Println(err.Error())
+	// 	}
+	// }
+	// fmt.Println(rows)
 
-	// Print the schema
-	schema := pr.SchemaHandler
-	fmt.Println(schema)
+}
+
+type Schema struct {
+}
+
+type Contact struct {
+	Name string `parquet:"name"`
+	// "zstd" specifies the compression for this column
+	PhoneNumber string `parquet:"phoneNumber,optional,zstd"`
+}
+
+type AddressBook struct {
+	Owner             string    `parquet:"owner,zstd"`
+	OwnerPhoneNumbers []string  `parquet:"ownerPhoneNumbers,gzip"`
+	Contacts          []Contact `parquet:"contacts"`
 }
