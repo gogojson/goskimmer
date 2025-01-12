@@ -1,8 +1,11 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
+	"io"
+	"log/slog"
 	"os"
 	"reflect"
 	"strings"
@@ -11,6 +14,15 @@ import (
 )
 
 func main() {
+	ctx := context.Background()
+
+	if err := run(ctx); err != nil {
+		slog.Error("Error while running", "err", err.Error())
+	}
+
+}
+
+func run(ctx context.Context) error {
 	// Get file from flag
 	fp := flag.String("file", "test/test.parquet.gzip", "Input file path for the file to skim")
 	flag.Parse()
@@ -19,11 +31,18 @@ func main() {
 	rf, err := os.Open(*fp)
 	if err != nil {
 		fmt.Println("Error opening file:", err)
-		return
+		return err
 	}
 	defer rf.Close()
 
-	pf := parquet.NewReader(rf)
+	parquetReader(rf)
+
+	return nil
+}
+
+func parquetReader(input io.ReaderAt) {
+	pf := parquet.NewReader(input)
+	defer pf.Close()
 
 	// Get the schema
 	schema := pf.Schema()
@@ -53,9 +72,6 @@ func main() {
 	fields := make([]reflect.StructField, len(schema.Fields()))
 
 	for i, field := range schema.Fields() {
-
-		// fmt.Printf("%+v\n", field.Type().Kind().String())
-		// fmt.Printf("%+v\n", field.Type().String())
 		fieldType, ok := typeMap[field.Type().String()]
 		if !ok {
 			fmt.Println("Unsupported field type:", field.Type().Kind().String())
@@ -73,17 +89,5 @@ func main() {
 	}
 	rowType := reflect.StructOf(fields)
 
-	// Create a slice of the struct type
-	sliceType := reflect.SliceOf(rowType)
-	rows := reflect.MakeSlice(sliceType, 0, 0).Interface()
-
-	// Read the rows
-	if err := pf.Read(&rows); err != nil {
-		fmt.Println("Error reading rows:", err)
-		return
-	}
-
-	// Print the rows
-	fmt.Println(rows)
-
+	fmt.Printf("%+v", rowType)
 }
