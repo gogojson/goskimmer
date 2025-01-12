@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 
 	"github.com/parquet-go/parquet-go"
 )
@@ -15,42 +16,74 @@ func main() {
 	flag.Parse()
 
 	// Now, we can read from the file.
-	rf, _ := os.Open(*fp)
+	rf, err := os.Open(*fp)
+	if err != nil {
+		fmt.Println("Error opening file:", err)
+		return
+	}
+	defer rf.Close()
+
 	pf := parquet.NewReader(rf)
 
-	// fmt.Println(pf.Schema().Columns())
+	// Get the schema
+	schema := pf.Schema()
 
-	aa := reflect.New(pf.Schema().GoType())
-	fmt.Println(aa.Interface())
-	// parquet.
-	// fmt.Printf("%+v\n", pf.Schema().GoType())
+	// Map of string representations to reflect.Type
+	typeMap := map[string]reflect.Type{
+		"INT":        reflect.TypeOf(int(0)),
+		"INT8":       reflect.TypeOf(int8(0)),
+		"INT16":      reflect.TypeOf(int16(0)),
+		"INT32":      reflect.TypeOf(int32(0)),
+		"INT64":      reflect.TypeOf(int64(0)),
+		"UINT":       reflect.TypeOf(uint(0)),
+		"UINT8":      reflect.TypeOf(uint8(0)),
+		"UINT16":     reflect.TypeOf(uint16(0)),
+		"UINT32":     reflect.TypeOf(uint32(0)),
+		"UINT64":     reflect.TypeOf(uint64(0)),
+		"FLOAT32":    reflect.TypeOf(float32(0)),
+		"FLOAT64":    reflect.TypeOf(float64(0)),
+		"STRING":     reflect.TypeOf(""),
+		"BOOL":       reflect.TypeOf(true),
+		"BYTE_ARRAY": reflect.TypeOf(byte(0)),
+		"DOUBLE":     reflect.TypeOf(byte(0)),
+		"TIMESTAMP(isAdjustedToUTC=false,unit=MICROS)": reflect.TypeOf(int64(0)),
+	}
+
+	// Create a struct type dynamically based on the schema fields
+	fields := make([]reflect.StructField, len(schema.Fields()))
+
+	for i, field := range schema.Fields() {
+
+		// fmt.Printf("%+v\n", field.Type().Kind().String())
+		// fmt.Printf("%+v\n", field.Type().String())
+		fieldType, ok := typeMap[field.Type().String()]
+		if !ok {
+			fmt.Println("Unsupported field type:", field.Type().Kind().String())
+			return
+		}
+
+		// Capitalize the first letter of the field name to make it exported
+		fieldName := strings.ToUpper(field.Name())
+
+		fields[i] = reflect.StructField{
+			Name: fieldName,
+			Type: fieldType,
+			Tag:  reflect.StructTag(fmt.Sprintf(`parquet:"%s"`, field.Name())),
+		}
+	}
+	rowType := reflect.StructOf(fields)
+
+	// Create a slice of the struct type
+	sliceType := reflect.SliceOf(rowType)
+	rows := reflect.MakeSlice(sliceType, 0, 0).Interface()
+
 	// Read the rows
-	// num := int(pf.NumRows())
-	// rows := parquet.GenericReader[]{}
+	if err := pf.Read(&rows); err != nil {
+		fmt.Println("Error reading rows:", err)
+		return
+	}
 
-	// for {
-	// 	if err := pf.Read(rows); err == io.EOF {
-	// 		break
-	// 	} else if err != nil {
-	// 		fmt.Println(err.Error())
-	// 	}
-	// }
-	// fmt.Println(rows)
+	// Print the rows
+	fmt.Println(rows)
 
-}
-
-type Schema struct {
-	Typer reflect.Type
-}
-
-type Contact struct {
-	Name string `parquet:"name"`
-	// "zstd" specifies the compression for this column
-	PhoneNumber string `parquet:"phoneNumber,optional,zstd"`
-}
-
-type AddressBook struct {
-	Owner             string    `parquet:"owner,zstd"`
-	OwnerPhoneNumbers []string  `parquet:"ownerPhoneNumbers,gzip"`
-	Contacts          []Contact `parquet:"contacts"`
 }
