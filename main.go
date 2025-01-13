@@ -9,6 +9,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/parquet-go/parquet-go"
 )
@@ -88,7 +89,23 @@ func parquetReader(input io.ReaderAt) error {
 		}
 	}
 	rowType := reflect.StructOf(fields)
+	fmt.Println("--------------------------------------------------------------------------------")
+	fmt.Println("Schema of the given file")
 
-	fmt.Printf("%+v", rowType)
+	printStruct(rowType)
 	return nil
+}
+
+// printStruct prints the struct type in a pretty table format
+func printStruct(t reflect.Type) {
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.Debug)
+	fmt.Fprintln(w, "Field\tType\tTag")
+	fmt.Fprintln(w, "-----\t----\t---")
+
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		fmt.Fprintf(w, "%s\t%s\t%s\n", field.Name, field.Type, field.Tag)
+	}
+
+	w.Flush()
 }
