@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
 	"reflect"
@@ -12,7 +11,11 @@ import (
 	"text/tabwriter"
 
 	"github.com/parquet-go/parquet-go"
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
 )
+
+var lineDivider = "--------------------------------------------------------------------------------"
 
 func main() {
 	ctx := context.Background()
@@ -36,15 +39,22 @@ func run(ctx context.Context) error {
 	}
 	defer rf.Close()
 
-	parquetReader(rf)
+	pf := parquet.NewReader(rf)
+	defer pf.Close()
+
+	schema, err := schemaPrinter(pf)
+	if err != nil {
+		return err
+	}
+
+	rowPrinter(pf)
+
+	_ = schema
 
 	return nil
 }
 
-func parquetReader(input io.ReaderAt) error {
-	pf := parquet.NewReader(input)
-	defer pf.Close()
-
+func schemaPrinter(pf *parquet.Reader) (reflect.Type, error) {
 	// Get the schema
 	schema := pf.Schema()
 
@@ -76,7 +86,7 @@ func parquetReader(input io.ReaderAt) error {
 		fieldType, ok := typeMap[field.Type().String()]
 		if !ok {
 			fmt.Println("Unsupported field type:", field.Type().Kind().String())
-			return fmt.Errorf("Unsupported field type: %s", field.Type().Kind().String())
+			return nil, fmt.Errorf("Unsupported field type: %s", field.Type().Kind().String())
 		}
 
 		// Capitalize the first letter of the field name to make it exported
@@ -89,23 +99,38 @@ func parquetReader(input io.ReaderAt) error {
 		}
 	}
 	rowType := reflect.StructOf(fields)
-	fmt.Println("--------------------------------------------------------------------------------")
+	fmt.Println(lineDivider)
 	fmt.Println("Schema of the given file")
 
-	printStruct(rowType)
-	return nil
-}
-
-// printStruct prints the struct type in a pretty table format
-func printStruct(t reflect.Type) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', tabwriter.Debug)
 	fmt.Fprintln(w, "Field\tType\tTag")
 	fmt.Fprintln(w, "-----\t----\t---")
 
-	for i := 0; i < t.NumField(); i++ {
-		field := t.Field(i)
+	for i := 0; i < rowType.NumField(); i++ {
+		field := rowType.Field(i)
 		fmt.Fprintf(w, "%s\t%s\t%s\n", field.Name, field.Type, field.Tag)
 	}
 
 	w.Flush()
+	return rowType, nil
+}
+
+func rowPrinter(pf *parquet.Reader) {
+	fmt.Println(lineDivider)
+	p := message.NewPrinter(language.English)
+
+	p.Printf("Row count: %d\n", pf.NumRows())
+}
+
+func timestampPrinter(pf *parquet.Reader, schema reflect.Type) {
+	for i := 0; i < schema.NumField(); i++ {
+		field := schema.Field(i)
+		if strings.Contains(strings.ToLower(string(field.Tag)), "timestamp") {
+		}
+	}
+
+	// min := 0
+	// max := 0
+
+	// pf.Read()
 }

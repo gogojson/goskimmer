@@ -2,7 +2,10 @@ module githib.com/gogojson/goskimmer
 
 go 1.23.3
 
-require github.com/parquet-go/parquet-go v0.24.0
+require (
+	github.com/parquet-go/parquet-go v0.24.0
+	golang.org/x/text v0.21.0
+)
 
 require (
 	github.com/andybalholm/brotli v1.1.0 // indirect
