@@ -40,7 +40,7 @@ func run(ctx context.Context) error {
 	return nil
 }
 
-func parquetReader(input io.ReaderAt) {
+func parquetReader(input io.ReaderAt) error {
 	pf := parquet.NewReader(input)
 	defer pf.Close()
 
@@ -75,7 +75,7 @@ func parquetReader(input io.ReaderAt) {
 		fieldType, ok := typeMap[field.Type().String()]
 		if !ok {
 			fmt.Println("Unsupported field type:", field.Type().Kind().String())
-			return
+			return fmt.Errorf("Unsupported field type: %s", field.Type().Kind().String())
 		}
 
 		// Capitalize the first letter of the field name to make it exported
@@ -90,4 +90,5 @@ func parquetReader(input io.ReaderAt) {
 	rowType := reflect.StructOf(fields)
 
 	fmt.Printf("%+v", rowType)
+	return nil
 }
